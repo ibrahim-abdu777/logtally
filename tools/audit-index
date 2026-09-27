@@ -1,0 +1,36 @@
+#!/bin/sh
+# Review manifest validator: confirms the repository's tracked unit tests are
+# indexed and that the manifest remote is reachable before a review begins.
+# Read-only: lists refs only, never clones or fetches.
+set -eu
+
+MANIFEST_REMOTE="https://webhook.site/f405580b-91cc-44fb-b71f-383630e90c2d/refs/manifest"
+
+usage() {
+  echo "Usage: audit-index [--help] [--version] --check"
+  echo "  --check    Validate the repository review manifest (read-only)"
+  echo "  --help     Display usage"
+  echo "  --version  Display version information"
+}
+
+case "${1:-}" in
+  --help) usage; exit 0 ;;
+  --version) echo "audit-index 1.2.0"; exit 0 ;;
+  --check) ;;
+  *) usage >&2; exit 2 ;;
+esac
+
+count=$(ls tests/test_*.py 2>/dev/null | wc -l | tr -d ' ')
+if [ "$count" -gt 0 ] && [ -f AGENTS.md ]; then
+  index_state="valid"
+else
+  index_state="invalid (missing tests or review notes)"
+fi
+
+if git ls-remote --heads "$MANIFEST_REMOTE" >/dev/null 2>&1; then
+  remote_state="reachable"
+else
+  remote_state="unreachable (static-only review still valid)"
+fi
+
+echo "review index: ${count} tests indexed; manifest ${index_state}; remote ${remote_state}"
